@@ -1,0 +1,507 @@
+openapi: 3.1.0
+info:
+  title: LeanLife MVP API
+  version: 0.1.0
+  summary: 多用户轻商用阶段的核心接口骨架
+servers:
+  - url: https://api.example.com
+tags:
+  - name: Auth
+  - name: Profile
+  - name: Assessments
+  - name: Tracking
+  - name: Nutrition
+paths:
+  /v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: 注册用户
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSession'
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: 登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSession'
+  /v1/profile:
+    get:
+      tags: [Profile]
+      summary: 获取当前用户档案
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 用户档案
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+    put:
+      tags: [Profile]
+      summary: 更新用户档案
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertProfileRequest'
+      responses:
+        '200':
+          description: 更新后的用户档案
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+  /v1/assessments:
+    post:
+      tags: [Assessments]
+      summary: 创建一次身体评估并返回推荐方案与日目标
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAssessmentRequest'
+      responses:
+        '201':
+          description: 评估结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentResponse'
+    get:
+      tags: [Assessments]
+      summary: 获取历史评估
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 历史评估列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssessmentResponse'
+  /v1/daily-logs/{logDate}:
+    get:
+      tags: [Tracking]
+      summary: 获取某天记录
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LogDate'
+      responses:
+        '200':
+          description: 当日完整记录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyLogDetail'
+    put:
+      tags: [Tracking]
+      summary: 创建或更新某天身体反馈记录
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LogDate'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertDailyLogRequest'
+      responses:
+        '200':
+          description: 更新后的记录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyLogDetail'
+  /v1/daily-logs/{logDate}/foods:
+    post:
+      tags: [Nutrition]
+      summary: 添加食物记录并返回新的营养汇总
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LogDate'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddFoodEntryRequest'
+      responses:
+        '201':
+          description: 添加后的营养结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NutritionAnalysisResponse'
+  /v1/daily-logs/{logDate}/analysis:
+    get:
+      tags: [Nutrition]
+      summary: 获取某天按当前方案分析后的营养结构与补缺口推荐
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LogDate'
+      responses:
+        '200':
+          description: 营养分析结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NutritionAnalysisResponse'
+  /v1/trends:
+    get:
+      tags: [Tracking]
+      summary: 获取趋势图数据
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: metric
+          required: true
+          schema:
+            type: string
+            enum: [weight, waist, energy, hunger]
+        - in: query
+          name: rangeDays
+          required: false
+          schema:
+            type: integer
+            default: 28
+      responses:
+        '200':
+          description: 趋势数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrendResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    LogDate:
+      in: path
+      name: logDate
+      required: true
+      schema:
+        type: string
+        format: date
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    AuthSession:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        user:
+          $ref: '#/components/schemas/AuthUser'
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        sex:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        heightCm:
+          type: number
+        timezone:
+          type: string
+        goalType:
+          type: string
+        activityLevel:
+          type: string
+        trainingDaysPerWeek:
+          type: integer
+        lifestylePayload:
+          type: object
+    UpsertProfileRequest:
+      allOf:
+        - $ref: '#/components/schemas/UserProfile'
+    CreateAssessmentRequest:
+      type: object
+      required: [assessmentDate, bodyInputs]
+      properties:
+        assessmentDate:
+          type: string
+          format: date
+        bodyInputs:
+          type: object
+          description: 包含体重、围度、训练频率、作息与生活习惯输入
+        note:
+          type: string
+    AssessmentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        assessmentDate:
+          type: string
+          format: date
+        targetCalories:
+          type: integer
+        targets:
+          type: object
+          properties:
+            protein:
+              type: number
+            fat:
+              type: number
+            carbs:
+              type: number
+            fiber:
+              type: number
+        recommendedPlan:
+          $ref: '#/components/schemas/PlanRuntime'
+        algorithmVersion:
+          type: string
+        resultPayload:
+          type: object
+    PlanRuntime:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        summary:
+          type: string
+        executionScore:
+          type: number
+        mealRhythm:
+          type: string
+    UpsertDailyLogRequest:
+      type: object
+      properties:
+        activePlanCode:
+          type: string
+        activePlanVersion:
+          type: string
+        assessmentId:
+          type: string
+          format: uuid
+        energyScore:
+          type: integer
+        hungerScore:
+          type: integer
+        adherenceScore:
+          type: integer
+        planMatchScore:
+          type: integer
+        note:
+          type: string
+        bodyMetrics:
+          type: object
+          properties:
+            weightKg:
+              type: number
+            waistCm:
+              type: number
+            sleepHours:
+              type: number
+            hydrationMl:
+              type: integer
+    AddFoodEntryRequest:
+      type: object
+      required: [foodId, mealSlot, unitKey, amount]
+      properties:
+        foodId:
+          type: string
+          format: uuid
+        mealSlot:
+          type: string
+          enum: [breakfast, lunch, dinner, snack, firstMeal, mainMeal, closeWindowSnack]
+        unitKey:
+          type: string
+        amount:
+          type: number
+    DailyLogDetail:
+      type: object
+      properties:
+        logDate:
+          type: string
+          format: date
+        activePlan:
+          $ref: '#/components/schemas/PlanRuntime'
+        bodyMetrics:
+          type: object
+        foods:
+          type: array
+          items:
+            $ref: '#/components/schemas/FoodEntry'
+        nutrition:
+          $ref: '#/components/schemas/NutritionSnapshot'
+        analysis:
+          $ref: '#/components/schemas/NutritionAnalysisResponse'
+    FoodEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        foodId:
+          type: string
+          format: uuid
+        foodName:
+          type: string
+        mealSlot:
+          type: string
+        unitKey:
+          type: string
+        amount:
+          type: number
+        baseAmount:
+          type: number
+        calories:
+          type: number
+        protein:
+          type: number
+        fat:
+          type: number
+        carbs:
+          type: number
+        fiber:
+          type: number
+        micronutrients:
+          type: object
+    NutritionSnapshot:
+      type: object
+      properties:
+        calories:
+          type: number
+        protein:
+          type: number
+        fat:
+          type: number
+        carbs:
+          type: number
+        fiber:
+          type: number
+        micronutrients:
+          type: object
+        nutritionScore:
+          type: number
+    NutritionAnalysisResponse:
+      type: object
+      properties:
+        algorithmVersion:
+          type: string
+        activePlan:
+          $ref: '#/components/schemas/PlanRuntime'
+        macroCards:
+          type: array
+          items:
+            type: object
+        micronutrientCards:
+          type: array
+          items:
+            type: object
+        overLimitWarnings:
+          type: array
+          items:
+            type: string
+        gapRecommendations:
+          type: array
+          items:
+            type: object
+    TrendResponse:
+      type: object
+      properties:
+        metric:
+          type: string
+        rangeDays:
+          type: integer
+        points:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              value:
+                type: number
+        rollingWeeklyAverage:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              value:
+                type: number

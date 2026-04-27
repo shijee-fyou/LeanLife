@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+out/
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env*.local
+
+# Dev data store (local JSON, never commit)
+backend/.data/
+
+# npm cache (local install cache, never commit)
+.npm-cache/
+backend/.npm-cache/
+frontend/.npm-cache/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+
+# Legacy prototype files (pre-Next.js)
+/index.html
+/app.js
+/styles.css
+/vercel.json
+
+# Next.js
+frontend/.next/
+frontend/out/
+
+# TypeScript
+*.tsbuildinfo

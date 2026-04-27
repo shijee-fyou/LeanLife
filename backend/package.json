@@ -1,0 +1,25 @@
+{
+  "name": "leanlife-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "LeanLife multi-user MVP backend scaffold",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.20.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "pg": "^8.20.0"
+  }
+}
