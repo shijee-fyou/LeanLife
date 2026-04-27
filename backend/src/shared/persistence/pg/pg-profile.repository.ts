@@ -47,7 +47,7 @@ export class PgProfileRepository implements ProfileRepository {
         input.heightCm ?? null,
         input.activityLevel ?? null,
         input.trainingDaysPerWeek ?? null,
-        input.timezone ?? null,
+        input.timezone ?? ctx.timezone ?? "Asia/Shanghai",
         input.lifestylePayload != null ? JSON.stringify(input.lifestylePayload) : null,
       ]
     );
