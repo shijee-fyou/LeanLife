@@ -194,7 +194,14 @@ async function apiWorkspace<TBody>(path: string, body?: TBody): Promise<Workspac
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error(await res.text() || "request failed");
+  if (!res.ok) {
+    let msg = `request failed (${res.status})`;
+    try {
+      const errData = await res.json() as { error?: { message?: string } };
+      if (errData?.error?.message) msg = errData.error.message;
+    } catch { /* non-JSON body, keep default */ }
+    throw new Error(msg);
+  }
   return ((await res.json()) as { data: WorkspaceData }).data;
 }
 
