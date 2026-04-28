@@ -54,7 +54,8 @@ async function ensureProfile(token: string): Promise<UserProfile> {
     headers: authHeaders(token),
   }).catch(() => null);
 
-  if (existing) return existing;
+  // id="" means the backend returned a skeleton (no real profile row exists yet)
+  if (existing?.id) return existing;
 
   return request<UserProfile>("/v1/profile", {
     method: "PUT",
