@@ -1,7 +1,4 @@
 {
   "version": 2,
-  "name": "leanlife-frontend",
-  "env": {
-    "LEANLIFE_BACKEND_URL": "@leanlife_backend_url"
-  }
+  "name": "leanlife-frontend"
 }
