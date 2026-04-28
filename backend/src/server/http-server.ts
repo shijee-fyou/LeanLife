@@ -127,6 +127,13 @@ async function route(app: Application, req: IncomingMessage, res: ServerResponse
       return sendJson(res, { status: 201, body: await app.nutrition.addFoodEntry(ctx, foodLogDate, body as never) });
     }
 
+    const foodEntryMatch = pathname.match(/^\/v1\/daily-logs\/([^/]+)\/foods\/([^/]+)$/);
+    const foodEntryId = foodEntryMatch?.[2];
+    if (foodEntryId && method === "DELETE") {
+      const ctx = await resolveContext(app, req);
+      return sendJson(res, { status: 200, body: await app.nutrition.deleteFoodEntry(ctx, foodEntryId) });
+    }
+
     const analysisMatch = pathname.match(/^\/v1\/daily-logs\/([^/]+)\/analysis$/);
     const analysisLogDate = analysisMatch?.[1];
     if (analysisLogDate && method === "GET") {

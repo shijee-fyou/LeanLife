@@ -188,6 +188,20 @@ export async function addWorkspaceFood(
   return buildWorkspace(token);
 }
 
+export async function deleteWorkspaceFood(
+  token: string,
+  logDate: string,
+  entryId: string
+): Promise<WorkspaceData> {
+  const res = await fetch(`${BASE_URL}/v1/daily-logs/${logDate}/foods/${entryId}`, {
+    method: "DELETE",
+    headers: authHeaders(token) as HeadersInit,
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Failed to delete food entry (${res.status})`);
+  return buildWorkspace(token);
+}
+
 export async function fetchDailyLogForDate(token: string, date: string): Promise<DailyLogDetail | null> {
   try {
     return await request<DailyLogDetail>(`/v1/daily-logs/${date}`, {

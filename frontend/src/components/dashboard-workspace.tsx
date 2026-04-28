@@ -187,10 +187,20 @@ function buildTrendPath(points: TrendPoint[], w: number, h: number, pad: number)
   return { line, area, plotted };
 }
 
+const MEAL_SLOT_LABELS: Record<string, string> = {
+  breakfast: "早餐",
+  lunch: "午餐",
+  dinner: "晚餐",
+  snack: "加餐",
+  firstMeal: "开窗餐",
+  mainMeal: "主餐",
+  closeWindowSnack: "收窗餐",
+};
+
 // ─── API helpers ─────────────────────────────────────────────────────────────
-async function apiWorkspace<TBody>(path: string, body?: TBody): Promise<WorkspaceData> {
+async function apiWorkspace<TBody>(path: string, body?: TBody, method = "POST"): Promise<WorkspaceData> {
   const res = await fetch(path, {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -471,16 +481,22 @@ export function DashboardWorkspace({ initialData }: Props) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mutations
-  function runMutation<T>(label: string, path: string, body?: T) {
+  function runMutation<T>(
+    label: string,
+    path: string,
+    body?: T,
+    opts?: { method?: string; onSuccess?: () => void }
+  ) {
     setStatusText(`${label}处理中…`);
     setStatusType("pending");
     startTransition(async () => {
       try {
-        const next = await apiWorkspace(path, body);
+        const next = await apiWorkspace(path, body, opts?.method ?? "POST");
         setWorkspace(next);
         setStatusType("success");
         setStatusText(`✓ ${label}已同步`);
         setTimeout(() => setStatusText(null), 2500);
+        opts?.onSuccess?.();
       } catch (err) {
         setStatusType("error");
         setStatusText(err instanceof Error ? err.message : `${label}失败`);
@@ -1575,15 +1591,20 @@ export function DashboardWorkspace({ initialData }: Props) {
                   onSubmit={(e) => {
                     e.preventDefault();
                     if (!selectedFood) return;
-                    runMutation("食物记录", "/api/workspace/food-entry", {
-                      logDate: workspace.dailyLog.logDate,
-                      input: {
-                        foodId: selectedFood.id,
-                        mealSlot,
-                        unitKey: foodUnit,
-                        amount: Number(foodAmount),
+                    runMutation(
+                      "食物记录",
+                      "/api/workspace/food-entry",
+                      {
+                        logDate: workspace.dailyLog.logDate,
+                        input: {
+                          foodId: selectedFood.id,
+                          mealSlot,
+                          unitKey: foodUnit,
+                          amount: Number(foodAmount),
+                        },
                       },
-                    });
+                      { onSuccess: () => setWorkspaceOpen(false) }
+                    );
                   }}
                 >
                   <div className="food-search-composer">
@@ -1671,11 +1692,25 @@ export function DashboardWorkspace({ initialData }: Props) {
                     </div>
                   </label>
 
-                  {selectedFood && (
-                    <p className="food-entry-hint">
-                      {selectedFood.name} 当前按 {selectedFood.unitOptions.find((u) => u.key === foodUnit)?.label ?? foodUnit} 记录，每 100{selectedFood.measureBase} {selectedFood.nutritionPer100.calories} kcal。
-                    </p>
-                  )}
+                  {selectedFood && (() => {
+                    const unit = selectedFood.unitOptions.find((u) => u.key === foodUnit);
+                    const baseGrams = unit ? unit.metricAmount * Number(foodAmount) : Number(foodAmount);
+                    const scale = baseGrams / 100;
+                    const n = selectedFood.nutritionPer100;
+                    const cal = Math.round(n.calories * scale);
+                    const pro = (n.protein * scale).toFixed(1);
+                    const fat = (n.fat * scale).toFixed(1);
+                    const carb = (n.carbs * scale).toFixed(1);
+                    return (
+                      <div className="food-entry-preview">
+                        <span className="food-entry-preview-name">{selectedFood.name} · {baseGrams}{selectedFood.measureBase}</span>
+                        <span className="food-entry-preview-kcal">{cal} kcal</span>
+                        <span>蛋白 {pro}g</span>
+                        <span>脂肪 {fat}g</span>
+                        <span>碳水 {carb}g</span>
+                      </div>
+                    );
+                  })()}
 
                   <button
                     type="submit"
@@ -1738,27 +1773,41 @@ export function DashboardWorkspace({ initialData }: Props) {
                 <div className="workspace-stack">
                   {(activeLog?.foods ?? []).length === 0 ? (
                     <div className="food-empty-state">
-                      <p style={{ margin: 0, color: "var(--muted)" }}>今天还没有记录食物。</p>
+                      <p style={{ margin: 0, color: "var(--muted)" }}>今天还没有记录食物，点击上方「添加食物」开始记录。</p>
                     </div>
                   ) : (
                     (activeLog?.foods ?? []).map((item) => (
                       <div key={item.id} className="food-row">
-                        <div>
-                          <strong style={{ display: "block" }}>{item.foodName}</strong>
-                          <p className="food-row-meta">{item.mealSlot ?? ""}</p>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <strong style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.foodName}</strong>
+                          <p className="food-row-meta">{MEAL_SLOT_LABELS[item.mealSlot ?? ""] ?? item.mealSlot ?? ""}</p>
                         </div>
-                        <div>
-                          <strong style={{ display: "block" }}>{item.amount} {item.unitKey}</strong>
+                        <div style={{ textAlign: "right" }}>
+                          <strong style={{ display: "block" }}>{item.amount}{item.unitKey}</strong>
                           <p className="food-row-meta">{item.calories} kcal</p>
                         </div>
-                        <div>
+                        <div style={{ textAlign: "right" }}>
                           <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>蛋白</span>
                           <strong style={{ display: "block" }}>{(item as { protein?: number }).protein ?? "--"}g</strong>
                         </div>
-                        <div>
+                        <div style={{ textAlign: "right" }}>
                           <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>碳水</span>
                           <strong style={{ display: "block" }}>{(item as { carbs?: number }).carbs ?? "--"}g</strong>
                         </div>
+                        <button
+                          type="button"
+                          className="food-row-delete"
+                          title="删除此记录"
+                          disabled={isPending}
+                          onClick={() => runMutation(
+                            "删除食物",
+                            "/api/workspace/food-entry",
+                            { logDate: activeLog?.logDate ?? workspace.dailyLog.logDate, entryId: item.id },
+                            { method: "DELETE" }
+                          )}
+                        >
+                          ×
+                        </button>
                       </div>
                     ))
                   )}

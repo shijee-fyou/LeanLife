@@ -76,6 +76,15 @@ export class PgNutritionRepository implements NutritionRepository {
     };
   }
 
+  async deleteFoodEntry(ctx: RequestContext, entryId: string): Promise<void> {
+    await this.pool.query(
+      `DELETE FROM food_entries fe
+       USING daily_logs dl
+       WHERE fe.id = $1 AND fe.daily_log_id = dl.id AND dl.user_id = $2`,
+      [entryId, ctx.user.id]
+    );
+  }
+
   async getNutritionAnalysis(ctx: RequestContext, logDate: string): Promise<NutritionAnalysisResult> {
     const foodRes = await this.pool.query<Record<string, unknown>>(
       `SELECT fe.id, fe.food_id, fe.food_name, fe.meal_slot, fe.unit_key,

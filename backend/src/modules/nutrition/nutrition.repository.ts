@@ -3,12 +3,13 @@ import type { RequestContext } from "../../shared/core-types.js";
 import { DevDataStore } from "../../shared/persistence/dev-data-store.js";
 import type { RepositoryHealth } from "../../shared/persistence/repository.types.js";
 import type { AddFoodEntryRequest, FoodCatalogItemView, FoodEntryWriteResult, NutritionAnalysisResult } from "./nutrition.contract.js";
-import { getFoodById, FOOD_CATALOG } from "./nutrition-catalog.js";
+import { FOOD_CATALOG } from "./nutrition-catalog.js";
 import { buildFoodEntryView, buildNutritionAnalysis } from "./nutrition-analysis.js";
 
 export interface NutritionRepository {
   listFoodCatalog(ctx: RequestContext): Promise<FoodCatalogItemView[]>;
   addFoodEntry(ctx: RequestContext, logDate: string, input: AddFoodEntryRequest): Promise<FoodEntryWriteResult>;
+  deleteFoodEntry(ctx: RequestContext, entryId: string): Promise<void>;
   getNutritionAnalysis(ctx: RequestContext, logDate: string): Promise<NutritionAnalysisResult>;
   health(): Promise<RepositoryHealth>;
 }
@@ -61,6 +62,15 @@ export class LocalNutritionRepository implements NutritionRepository {
       },
       analysis,
     };
+  }
+
+  async deleteFoodEntry(ctx: RequestContext, entryId: string): Promise<void> {
+    await this.store.mutate((snapshot) => ({
+      ...snapshot,
+      foodEntries: snapshot.foodEntries.filter(
+        (item) => !(item.id === entryId && item.userId === ctx.user.id)
+      ),
+    }));
   }
 
   async getNutritionAnalysis(ctx: RequestContext, logDate: string): Promise<NutritionAnalysisResult> {

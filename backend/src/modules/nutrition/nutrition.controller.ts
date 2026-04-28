@@ -22,6 +22,10 @@ export class NutritionController {
     return this.service.addFoodEntry(ctx, logDate, input);
   }
 
+  deleteFoodEntry(ctx: RequestContext, entryId: string): Promise<ApiEnvelope<{ deleted: true }>> {
+    return this.service.deleteFoodEntry(ctx, entryId);
+  }
+
   getNutritionAnalysis(ctx: RequestContext, logDate: string): Promise<ApiEnvelope<NutritionAnalysisResult>> {
     return this.service.getNutritionAnalysis(ctx, logDate);
   }

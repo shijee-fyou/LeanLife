@@ -92,5 +92,6 @@ export interface FoodEntryWriteResult {
 export interface NutritionModule {
   listFoodCatalog(ctx: RequestContext): Promise<ApiEnvelope<FoodCatalogItemView[]>>;
   addFoodEntry(ctx: RequestContext, logDate: ISODate, input: AddFoodEntryRequest): Promise<ApiEnvelope<FoodEntryWriteResult>>;
+  deleteFoodEntry(ctx: RequestContext, entryId: UUID): Promise<ApiEnvelope<{ deleted: true }>>;
   getNutritionAnalysis(ctx: RequestContext, logDate: ISODate): Promise<ApiEnvelope<NutritionAnalysisResult>>;
 }

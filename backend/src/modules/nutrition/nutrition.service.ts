@@ -32,6 +32,11 @@ export class NutritionService implements NutritionModule {
     };
   }
 
+  async deleteFoodEntry(ctx: RequestContext, entryId: string): Promise<ApiEnvelope<{ deleted: true }>> {
+    await this.repository.deleteFoodEntry(ctx, entryId);
+    return { data: { deleted: true } };
+  }
+
   async getNutritionAnalysis(ctx: RequestContext, logDate: string): Promise<ApiEnvelope<NutritionAnalysisResult>> {
     const result = await this.repository.getNutritionAnalysis(ctx, logDate);
     return {
