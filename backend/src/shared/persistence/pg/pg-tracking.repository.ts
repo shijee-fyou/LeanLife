@@ -77,11 +77,15 @@ export class PgTrackingRepository implements TrackingRepository {
       `INSERT INTO daily_logs
          (id, user_id, log_date, timezone, active_plan_code, active_plan_version,
           assessment_id, energy_score, hunger_score, adherence_score, plan_match_score, notes)
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5,
+         (SELECT id FROM body_assessments WHERE id::text = $6 AND user_id = $1 LIMIT 1),
+         $7, $8, $9, $10, $11)
        ON CONFLICT (user_id, log_date) DO UPDATE SET
          active_plan_code   = COALESCE($4,  daily_logs.active_plan_code),
          active_plan_version= COALESCE($5,  daily_logs.active_plan_version),
-         assessment_id      = COALESCE($6,  daily_logs.assessment_id),
+         assessment_id      = COALESCE(
+           (SELECT id FROM body_assessments WHERE id::text = $6 AND user_id = $1 LIMIT 1),
+           daily_logs.assessment_id),
          energy_score       = COALESCE($7,  daily_logs.energy_score),
          hunger_score       = COALESCE($8,  daily_logs.hunger_score),
          adherence_score    = COALESCE($9,  daily_logs.adherence_score),

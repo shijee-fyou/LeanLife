@@ -164,6 +164,13 @@ async function route(app: Application, req: IncomingMessage, res: ServerResponse
     ) {
       return sendJson(res, jsonError(400, message));
     }
+    const pgCode = (error as Record<string, unknown>)["code"];
+    if (pgCode === "23503") {
+      return sendJson(res, jsonError(400, "Referenced record does not exist."));
+    }
+    if (pgCode === "23502") {
+      return sendJson(res, jsonError(400, "A required field is missing."));
+    }
     console.error("[server error]", error);
     return sendJson(res, jsonError(500, "An unexpected error occurred."));
   }
