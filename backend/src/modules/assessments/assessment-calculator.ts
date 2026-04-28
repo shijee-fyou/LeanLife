@@ -118,12 +118,17 @@ export function computeAssessment(
   profile: UserProfile | null,
   bodyInputs: AssessmentBodyInputs
 ): AssessmentComputation {
+  const payload = bodyInputs.bodyInputsPayload ?? {};
   const weightKg = bodyInputs.weightKg ?? 70;
-  const heightCm = profile?.heightCm ?? 170;
-  const age = inferAge(profile?.birthDate);
-  const bmr = estimateBmr(weightKg, heightCm, age, profile?.sex);
+  const heightCm = profile?.heightCm ?? (payload["heightCm"] as number | undefined) ?? 170;
+  const sex = profile?.sex ?? (payload["sex"] as string | undefined);
+  const age = inferAge(profile?.birthDate) ?? (payload["age"] as number | undefined);
+  const bmr = estimateBmr(weightKg, heightCm, age, sex);
   const trainingDays = bodyInputs.trainingDaysPerWeek ?? profile?.trainingDaysPerWeek ?? 3;
-  const activityMultiplier = parseActivityMultiplier(profile?.activityLevel);
+  const activityMultiplier =
+    payload["activityMultiplier"] != null
+      ? Number(payload["activityMultiplier"])
+      : parseActivityMultiplier(profile?.activityLevel);
   const tdee = bmr * activityMultiplier + trainingDays * 45;
   const targetCalories = round(clamp(tdee - 380, 1350, 2600));
   const recommendedPlan = buildRecommendedPlan({

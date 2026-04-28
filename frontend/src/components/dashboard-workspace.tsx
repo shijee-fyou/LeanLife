@@ -675,7 +675,20 @@ export function DashboardWorkspace({ initialData }: Props) {
                     bodyInputs: {
                       weightKg: Number(aForm.weight),
                       waistCm: Number(aForm.waist),
+                      ...(Number(aForm.neck) > 0 ? { neckCm: Number(aForm.neck) } : {}),
+                      ...(Number(aForm.hip) > 0 ? { hipCm: Number(aForm.hip) } : {}),
                       trainingDaysPerWeek: Number(aForm.trainingDays),
+                      bodyInputsPayload: {
+                        heightCm: Number(aForm.height),
+                        sex: aForm.sex,
+                        age: Number(aForm.age),
+                        activityMultiplier: Number(aForm.activity),
+                        mealRhythm: aForm.mealRhythm,
+                        goalPace: Number(aForm.goalPace),
+                        stress: aForm.stress,
+                        water: Number(aForm.water),
+                        sleepHours: Number(aForm.sleepHours),
+                      },
                     },
                     note: "dashboard full assessment",
                   });
