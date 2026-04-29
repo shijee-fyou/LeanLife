@@ -91,7 +91,9 @@ async function ensureDailyLog(token: string, assessment: AssessmentSnapshot): Pr
       method: "GET",
       headers: authHeaders(token),
     });
-    if (existing.bodyMetrics?.weightKg !== undefined) return existing;
+    if (existing && (existing.foods?.length > 0 || existing.bodyMetrics?.weightKg != null || existing.activePlan)) {
+      return existing;
+    }
   } catch {
     // noop
   }
@@ -103,11 +105,6 @@ async function ensureDailyLog(token: string, assessment: AssessmentSnapshot): Pr
       assessmentId: assessment.id,
       activePlanCode: assessment.recommendedPlan.code,
       activePlanVersion: assessment.recommendedPlan.version,
-      energyScore: 4,
-      hungerScore: 2,
-      adherenceScore: 5,
-      planMatchScore: 5,
-      bodyMetrics: { weightKg: 70, waistCm: 80, hydrationMl: 2000 },
     }),
   });
 }

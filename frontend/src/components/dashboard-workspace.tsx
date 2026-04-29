@@ -329,9 +329,7 @@ export function DashboardWorkspace({ initialData }: Props) {
     waist: String(workspace.dailyLog.bodyMetrics?.waistCm ?? ""),
     hydration: String(workspace.dailyLog.bodyMetrics?.hydrationMl ?? ""),
     energy: 3,
-    hunger: 3,
-    adherence: 4,
-    planMatch: 4,
+    adherence: 3, // stored as 1 / 3 / 5
     note: "",
   });
 
@@ -491,7 +489,7 @@ export function DashboardWorkspace({ initialData }: Props) {
         if (json?.data) setMonthStatus(json.data);
       })
       .catch(() => null);
-  }, [calMonth, workspace.dailyLog.logDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [calMonth, workspace.dailyLog.foods.length, workspace.dailyLog.bodyMetrics?.weightKg]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mutations
   function runMutation<T>(
@@ -1375,9 +1373,7 @@ export function DashboardWorkspace({ initialData }: Props) {
                           activePlanCode: workspace.assessment.recommendedPlan.code,
                           activePlanVersion: workspace.assessment.recommendedPlan.version,
                           energyScore: trackForm.energy,
-                          hungerScore: trackForm.hunger,
                           adherenceScore: trackForm.adherence,
-                          planMatchScore: trackForm.planMatch,
                           bodyMetrics: {
                             weightKg: trackForm.weight ? Number(trackForm.weight) : undefined,
                             waistCm: trackForm.waist ? Number(trackForm.waist) : undefined,
@@ -1430,42 +1426,48 @@ export function DashboardWorkspace({ initialData }: Props) {
                                 onChange={(e) => setTrackForm((c) => ({ ...c, waist: e.target.value }))}
                               />
                             </label>
-                            <label>
-                              今日能量（1-5）
-                              <input
-                                type="range" min={1} max={5}
-                                value={trackForm.energy}
-                                onChange={(e) => setTrackForm((c) => ({ ...c, energy: Number(e.target.value) }))}
-                              />
-                              <span style={{ textAlign: "right", color: "var(--primary)", fontWeight: 800 }}>{trackForm.energy}</span>
-                            </label>
-                            <label>
-                              今日饥饿感（1-5）
-                              <input
-                                type="range" min={1} max={5}
-                                value={trackForm.hunger}
-                                onChange={(e) => setTrackForm((c) => ({ ...c, hunger: Number(e.target.value) }))}
-                              />
-                              <span style={{ textAlign: "right", color: "var(--primary)", fontWeight: 800 }}>{trackForm.hunger}</span>
-                            </label>
-                            <label>
-                              饮食执行度（1-5）
-                              <input
-                                type="range" min={1} max={5}
-                                value={trackForm.adherence}
-                                onChange={(e) => setTrackForm((c) => ({ ...c, adherence: Number(e.target.value) }))}
-                              />
-                              <span style={{ textAlign: "right", color: "var(--secondary)", fontWeight: 800 }}>{trackForm.adherence}</span>
-                            </label>
-                            <label>
-                              今日方案完成度（1-5）
-                              <input
-                                type="range" min={1} max={5}
-                                value={trackForm.planMatch}
-                                onChange={(e) => setTrackForm((c) => ({ ...c, planMatch: Number(e.target.value) }))}
-                              />
-                              <span style={{ textAlign: "right", color: "var(--secondary)", fontWeight: 800 }}>{trackForm.planMatch}</span>
-                            </label>
+                            <div className="score-field">
+                              <span className="score-field-label">今日能量</span>
+                              <div className="emoji-selector">
+                                {([
+                                  { val: 1, emoji: "😴", label: "很疲惫" },
+                                  { val: 2, emoji: "😔", label: "疲惫" },
+                                  { val: 3, emoji: "😊", label: "一般" },
+                                  { val: 4, emoji: "💪", label: "不错" },
+                                  { val: 5, emoji: "🔥", label: "满血" },
+                                ] as { val: number; emoji: string; label: string }[]).map(({ val, emoji, label }) => (
+                                  <button
+                                    key={val}
+                                    type="button"
+                                    className={`emoji-btn${trackForm.energy === val ? " active" : ""}`}
+                                    onClick={() => setTrackForm((c) => ({ ...c, energy: val }))}
+                                    title={label}
+                                  >
+                                    <span className="emoji-btn-icon">{emoji}</span>
+                                    <span className="emoji-btn-label">{label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="score-field">
+                              <span className="score-field-label">饮食执行</span>
+                              <div className="adherence-selector">
+                                {([
+                                  { val: 1, icon: "❌", label: "没坚持" },
+                                  { val: 3, icon: "🌗", label: "部分完成" },
+                                  { val: 5, icon: "✅", label: "完全执行" },
+                                ] as { val: number; icon: string; label: string }[]).map(({ val, icon, label }) => (
+                                  <button
+                                    key={val}
+                                    type="button"
+                                    className={`adherence-btn${trackForm.adherence === val ? " active" : ""}`}
+                                    onClick={() => setTrackForm((c) => ({ ...c, adherence: val }))}
+                                  >
+                                    {icon} {label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
                             <label>
                               备注
                               <textarea
