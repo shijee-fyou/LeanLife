@@ -73,8 +73,28 @@ export interface TrendResult {
   rollingWeeklyAverage?: TrendPoint[];
 }
 
+export interface CalendarDayStatus {
+  date: ISODate;
+  hasWeight: boolean;
+  foodCount: number;
+  totalCalories: number;
+  caloriesPct: number | null;
+  adherenceScore: number | null;
+  energyScore: number | null;
+}
+
+export interface CalendarMonthStatus {
+  year: number;
+  month: number;
+  days: CalendarDayStatus[];
+  currentStreak: number;
+  longestStreak: number;
+  loggedDays: number;
+}
+
 export interface TrackingModule {
   getDailyLog(ctx: RequestContext, logDate: ISODate): Promise<ApiEnvelope<DailyLogDetail>>;
   upsertDailyLog(ctx: RequestContext, logDate: ISODate, input: UpsertDailyLogRequest): Promise<ApiEnvelope<DailyLogDetail>>;
   getTrend(ctx: RequestContext, query: TrendQuery): Promise<ApiEnvelope<TrendResult>>;
+  getCalendarMonthStatus(ctx: RequestContext, year: number, month: number): Promise<ApiEnvelope<CalendarMonthStatus>>;
 }

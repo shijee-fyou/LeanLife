@@ -141,6 +141,13 @@ async function route(app: Application, req: IncomingMessage, res: ServerResponse
       return sendJson(res, { status: 200, body: await app.nutrition.getNutritionAnalysis(ctx, analysisLogDate) });
     }
 
+    if (pathname === "/v1/calendar/month-status" && method === "GET") {
+      const ctx = await resolveContext(app, req);
+      const year = Number(url.searchParams.get("year") || new Date().getFullYear());
+      const month = Number(url.searchParams.get("month") || new Date().getMonth() + 1);
+      return sendJson(res, { status: 200, body: await app.tracking.getCalendarMonthStatus(ctx, year, month) });
+    }
+
     if (pathname === "/v1/trends" && method === "GET") {
       const ctx = await resolveContext(app, req);
       return sendJson(res, {

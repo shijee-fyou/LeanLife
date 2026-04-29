@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { DailyLogDetail, WorkspaceData } from "@/lib/types";
+import type { CalendarDayStatus, CalendarMonthStatus, DailyLogDetail, WorkspaceData } from "@/lib/types";
 
 // ─── Diet Plans data ────────────────────────────────────────────────────────
 interface DietPlan {
@@ -284,6 +284,7 @@ export function DashboardWorkspace({ initialData }: Props) {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
+  const [monthStatus, setMonthStatus] = useState<CalendarMonthStatus | null>(null);
 
   // Trend
   const [trendMetric, setTrendMetric] = useState<TrendMetricKey>("weight");
@@ -480,6 +481,18 @@ export function DashboardWorkspace({ initialData }: Props) {
     void prefetch();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch calendar month status whenever the viewed month or today's log changes
+  useEffect(() => {
+    const year = calMonth.getFullYear();
+    const month = calMonth.getMonth() + 1;
+    void fetch(`/api/workspace/calendar-status?year=${year}&month=${month}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((json: { data: CalendarMonthStatus } | null) => {
+        if (json?.data) setMonthStatus(json.data);
+      })
+      .catch(() => null);
+  }, [calMonth, workspace.dailyLog.logDate]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Mutations
   function runMutation<T>(
     label: string,
@@ -533,6 +546,20 @@ export function DashboardWorkspace({ initialData }: Props) {
     for (let d = 1; d <= daysInMonth; d++) cells.push(d);
     return cells;
   }, [calMonth]);
+
+  const daysInCalMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0).getDate();
+
+  const dayStatusMap = useMemo(() => {
+    const map: Record<string, CalendarDayStatus> = {};
+    for (const d of monthStatus?.days ?? []) map[d.date] = d;
+    return map;
+  }, [monthStatus]);
+
+  const calMonthAvgCalPct = useMemo(() => {
+    const withPct = (monthStatus?.days ?? []).filter((d) => d.caloriesPct != null);
+    if (!withPct.length) return null;
+    return Math.round(withPct.reduce((s, d) => s + d.caloriesPct!, 0) / withPct.length);
+  }, [monthStatus]);
 
   const calMonthTitle = `${calMonth.getFullYear()} 年 ${calMonth.getMonth() + 1} 月`;
 
@@ -1141,17 +1168,39 @@ export function DashboardWorkspace({ initialData }: Props) {
                       className="ghost-btn"
                       onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))}
                     >
-                      上一月
+                      ←
                     </button>
-                    <h3>{calMonthTitle}</h3>
+                    <div className="calendar-title-block">
+                      <h3>{calMonthTitle}</h3>
+                    </div>
                     <button
                       type="button"
                       className="ghost-btn"
                       onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))}
                     >
-                      下一月
+                      →
                     </button>
                   </div>
+
+                  {/* Month stats row */}
+                  <div className="calendar-stats-row">
+                    {(monthStatus?.currentStreak ?? 0) > 0 && (
+                      <span className="cal-stat-badge cal-stat-streak">
+                        🔥 连续 {monthStatus!.currentStreak} 天
+                      </span>
+                    )}
+                    {monthStatus && (
+                      <span className="cal-stat-badge">
+                        {monthStatus.loggedDays} / {daysInCalMonth} 天打卡
+                      </span>
+                    )}
+                    {calMonthAvgCalPct != null && (
+                      <span className="cal-stat-badge">
+                        均 {calMonthAvgCalPct}% 热量达标
+                      </span>
+                    )}
+                  </div>
+
                   <div className="weekday-row">
                     {["一", "二", "三", "四", "五", "六", "日"].map((d) => (
                       <span key={d}>{d}</span>
@@ -1163,15 +1212,39 @@ export function DashboardWorkspace({ initialData }: Props) {
                       const dateStr = `${calMonth.getFullYear()}-${String(calMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                       const isToday2 = dateStr === todayStr();
                       const isSelected = dateStr === viewDate;
-                      const hasLog = dateStr === workspace.dailyLog.logDate && workspace.dailyLog.bodyMetrics?.weightKg;
+                      const st = dayStatusMap[dateStr];
+                      const hasBoth = st?.hasWeight && st.foodCount > 0;
+                      const isOver = st?.caloriesPct != null && st.caloriesPct > 110;
+                      const heatClass = hasBoth
+                        ? " dc-full"
+                        : st?.hasWeight
+                        ? " dc-weight"
+                        : st && st.foodCount > 0
+                        ? " dc-food"
+                        : "";
                       return (
                         <div
                           key={day}
-                          className={`day-cell${isToday2 ? " is-today" : ""}${isSelected ? " is-selected" : ""}${hasLog ? " has-log" : ""}`}
+                          className={`day-cell${isToday2 ? " is-today" : ""}${isSelected ? " is-selected" : ""}${heatClass}${isOver ? " dc-over" : ""}`}
                           onClick={() => void navigateDate(dateStr)}
                         >
-                          <span style={{ fontWeight: isToday2 ? 800 : 600, fontSize: "0.9rem" }}>{day}</span>
-                          {hasLog && <div className="day-score" />}
+                          <span className="day-num" style={{ fontWeight: isToday2 ? 800 : 600 }}>{day}</span>
+                          {st && (st.hasWeight || st.foodCount > 0) && (
+                            <div className="day-cell-bottom">
+                              <div className="day-indicators">
+                                {st.hasWeight && <div className="day-dot day-dot--weight" title="已记录体重" />}
+                                {st.foodCount > 0 && <div className="day-dot day-dot--food" title={`${st.foodCount} 条食物`} />}
+                              </div>
+                              {st.caloriesPct != null && (
+                                <div className="day-calorie-bar">
+                                  <div
+                                    className={`day-calorie-bar-fill${isOver ? " over" : ""}`}
+                                    style={{ width: `${Math.min(100, st.caloriesPct)}%` }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}

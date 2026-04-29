@@ -202,6 +202,27 @@ export async function deleteWorkspaceFood(
   return buildWorkspace(token);
 }
 
+export async function fetchCalendarMonthStatus(
+  token: string,
+  year: number,
+  month: number
+): Promise<import("../types").CalendarMonthStatus | null> {
+  try {
+    const response = await fetch(
+      `${BASE_URL}/v1/calendar/month-status?year=${year}&month=${month}`,
+      {
+        headers: authHeaders(token) as HeadersInit,
+        cache: "no-store",
+      }
+    );
+    if (!response.ok) return null;
+    const envelope = (await response.json()) as { data: import("../types").CalendarMonthStatus };
+    return envelope.data;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchDailyLogForDate(token: string, date: string): Promise<DailyLogDetail | null> {
   try {
     return await request<DailyLogDetail>(`/v1/daily-logs/${date}`, {

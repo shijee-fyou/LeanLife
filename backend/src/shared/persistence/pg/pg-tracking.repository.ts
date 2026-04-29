@@ -2,7 +2,7 @@ import pg from "pg";
 import type { RequestContext, TrendPoint } from "../../core-types.js";
 import type { RepositoryHealth } from "../repository.types.js";
 import type { TrackingRepository } from "../../../modules/tracking/tracking.repository.js";
-import type { DailyLogDetail, TrendQuery, TrendResult, UpsertDailyLogRequest } from "../../../modules/tracking/tracking.contract.js";
+import type { CalendarDayStatus, CalendarMonthStatus, DailyLogDetail, TrendQuery, TrendResult, UpsertDailyLogRequest } from "../../../modules/tracking/tracking.contract.js";
 import { buildNutritionAnalysis } from "../../../modules/nutrition/nutrition-analysis.js";
 
 export class PgTrackingRepository implements TrackingRepository {
@@ -163,6 +163,106 @@ export class PgTrackingRepository implements TrackingRepository {
       query.metric === "weight" && points.length ? computeRolling(points) : undefined;
 
     return { metric: query.metric, rangeDays, points, rollingWeeklyAverage };
+  }
+
+  async getCalendarMonthStatus(ctx: RequestContext, year: number, month: number): Promise<CalendarMonthStatus> {
+    const mm = String(month).padStart(2, "0");
+    const startDate = `${year}-${mm}-01`;
+    const endDate = new Date(year, month, 0).toISOString().slice(0, 10); // last day of month
+
+    // Target calories from the most recent assessment
+    const asmRes = await this.pool.query<{ target_calories: string }>(
+      `SELECT target_calories FROM body_assessments WHERE user_id = $1 ORDER BY assessment_date DESC LIMIT 1`,
+      [ctx.user.id]
+    );
+    const targetCalories = asmRes.rows[0] ? Number(asmRes.rows[0].target_calories) : null;
+
+    // Per-day summary for the requested month
+    const monthRes = await this.pool.query<Record<string, unknown>>(
+      `SELECT
+         dl.log_date::text                       AS log_date,
+         (bme.weight_kg IS NOT NULL)             AS has_weight,
+         COUNT(fe.id)::int                       AS food_count,
+         COALESCE(SUM(fe.calories), 0)::numeric  AS total_calories,
+         dl.adherence_score,
+         dl.energy_score
+       FROM daily_logs dl
+       LEFT JOIN body_metric_entries bme ON bme.daily_log_id = dl.id
+       LEFT JOIN food_entries         fe  ON fe.daily_log_id  = dl.id
+       WHERE dl.user_id  = $1
+         AND dl.log_date BETWEEN $2 AND $3
+       GROUP BY dl.log_date, bme.weight_kg, dl.adherence_score, dl.energy_score
+       ORDER BY dl.log_date ASC`,
+      [ctx.user.id, startDate, endDate]
+    );
+
+    const days: CalendarDayStatus[] = monthRes.rows.map((row) => {
+      const totalCalories = Number(row["total_calories"]);
+      const caloriesPct =
+        targetCalories && totalCalories > 0
+          ? Math.round((totalCalories / targetCalories) * 100)
+          : null;
+      return {
+        date: row["log_date"] as string,
+        hasWeight: row["has_weight"] as boolean,
+        foodCount: Number(row["food_count"]),
+        totalCalories,
+        caloriesPct,
+        adherenceScore: row["adherence_score"] != null ? Number(row["adherence_score"]) : null,
+        energyScore: row["energy_score"] != null ? Number(row["energy_score"]) : null,
+      };
+    });
+
+    // Streak: fetch all logged days in the last 90 days (any weight OR food entry)
+    const streakRes = await this.pool.query<{ log_date: string }>(
+      `SELECT dl.log_date::text AS log_date
+       FROM daily_logs dl
+       LEFT JOIN body_metric_entries bme ON bme.daily_log_id = dl.id
+       LEFT JOIN food_entries         fe  ON fe.daily_log_id  = dl.id
+       WHERE dl.user_id  = $1
+         AND dl.log_date >= (CURRENT_DATE - INTERVAL '90 days')::text
+         AND dl.log_date <= CURRENT_DATE::text
+       GROUP BY dl.log_date
+       HAVING bme.weight_kg IS NOT NULL OR COUNT(fe.id) > 0
+       ORDER BY dl.log_date DESC`,
+      [ctx.user.id]
+    );
+
+    const loggedSet = new Set(streakRes.rows.map((r) => r.log_date));
+    const todayDate = new Date().toISOString().slice(0, 10);
+
+    // Current streak: walk backwards from today (allow today to be still in progress)
+    let currentStreak = 0;
+    const cursor = new Date();
+    if (!loggedSet.has(todayDate)) cursor.setDate(cursor.getDate() - 1);
+    for (let i = 0; i < 90; i++) {
+      const ds = cursor.toISOString().slice(0, 10);
+      if (loggedSet.has(ds)) {
+        currentStreak++;
+        cursor.setDate(cursor.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+
+    // Longest streak within the 90-day window
+    const sortedDates = streakRes.rows.map((r) => r.log_date).sort();
+    let longestStreak = 0;
+    let run = 0;
+    for (let i = 0; i < sortedDates.length; i++) {
+      if (i === 0) {
+        run = 1;
+      } else {
+        const prev = new Date(sortedDates[i - 1]!);
+        const curr = new Date(sortedDates[i]!);
+        const gap = Math.round((curr.getTime() - prev.getTime()) / 86_400_000);
+        run = gap === 1 ? run + 1 : 1;
+      }
+      if (run > longestStreak) longestStreak = run;
+    }
+
+    const loggedDays = days.filter((d) => d.hasWeight || d.foodCount > 0).length;
+    return { year, month, days, currentStreak, longestStreak, loggedDays };
   }
 
   async health(): Promise<RepositoryHealth> {

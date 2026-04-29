@@ -1,3 +1,22 @@
+export interface CalendarDayStatus {
+  date: string;
+  hasWeight: boolean;
+  foodCount: number;
+  totalCalories: number;
+  caloriesPct: number | null;
+  adherenceScore: number | null;
+  energyScore: number | null;
+}
+
+export interface CalendarMonthStatus {
+  year: number;
+  month: number;
+  days: CalendarDayStatus[];
+  currentStreak: number;
+  longestStreak: number;
+  loggedDays: number;
+}
+
 export interface AuthUser {
   id: string;
   email: string;

@@ -2,13 +2,14 @@ import { randomUUID } from "node:crypto";
 import type { RequestContext, TrendPoint } from "../../shared/core-types.js";
 import { DevDataStore } from "../../shared/persistence/dev-data-store.js";
 import type { RepositoryHealth } from "../../shared/persistence/repository.types.js";
-import type { DailyLogDetail, TrendQuery, TrendResult, UpsertDailyLogRequest } from "./tracking.contract.js";
+import type { CalendarDayStatus, CalendarMonthStatus, DailyLogDetail, TrendQuery, TrendResult, UpsertDailyLogRequest } from "./tracking.contract.js";
 import { buildNutritionAnalysis } from "../nutrition/nutrition-analysis.js";
 
 export interface TrackingRepository {
   getDailyLog(ctx: RequestContext, logDate: string): Promise<DailyLogDetail>;
   upsertDailyLog(ctx: RequestContext, logDate: string, input: UpsertDailyLogRequest): Promise<DailyLogDetail>;
   getTrend(ctx: RequestContext, query: TrendQuery): Promise<TrendResult>;
+  getCalendarMonthStatus(ctx: RequestContext, year: number, month: number): Promise<CalendarMonthStatus>;
   health(): Promise<RepositoryHealth>;
 }
 
@@ -194,6 +195,31 @@ export class LocalTrackingRepository implements TrackingRepository {
       points,
       rollingWeeklyAverage: query.metric === "weight" && points.length ? computeRollingWeeklyAverage(points) : undefined,
     };
+  }
+
+  async getCalendarMonthStatus(ctx: RequestContext, year: number, month: number): Promise<CalendarMonthStatus> {
+    const current = await this.store.read();
+    const monthStr = `${year}-${String(month).padStart(2, "0")}`;
+
+    const days: CalendarDayStatus[] = current.dailyLogs
+      .filter((dl) => dl.userId === ctx.user.id && dl.logDate.startsWith(monthStr))
+      .map((dl) => {
+        const foodEntries = current.foodEntries.filter(
+          (fe) => fe.userId === ctx.user.id && fe.logDate === dl.logDate
+        );
+        return {
+          date: dl.logDate,
+          hasWeight: dl.bodyMetrics?.weightKg != null,
+          foodCount: foodEntries.length,
+          totalCalories: foodEntries.reduce((sum, fe) => sum + fe.calories, 0),
+          caloriesPct: null,
+          adherenceScore: dl.adherenceScore ?? null,
+          energyScore: dl.energyScore ?? null,
+        };
+      });
+
+    const loggedDays = days.filter((d) => d.hasWeight || d.foodCount > 0).length;
+    return { year, month, days, currentStreak: 0, longestStreak: 0, loggedDays };
   }
 
   async health(): Promise<RepositoryHealth> {
