@@ -1259,29 +1259,37 @@ export function DashboardWorkspace({ initialData }: Props) {
                         : st && st.foodCount > 0
                         ? " dc-food"
                         : "";
+                      // Water fill height = calorie %; fallback for food-only or weight-only days
+                      const fillPct = st
+                        ? st.caloriesPct != null
+                          ? Math.min(100, st.caloriesPct)
+                          : st.foodCount > 0
+                          ? 25
+                          : st.hasWeight
+                          ? 12
+                          : 0
+                        : 0;
+                      const fillBg = isOver
+                        ? "linear-gradient(to top, rgba(220,80,80,0.52) 0%, rgba(220,80,80,0.07) 100%)"
+                        : hasBoth
+                        ? "linear-gradient(to top, rgba(36,92,77,0.52) 0%, rgba(36,92,77,0.07) 100%)"
+                        : st && st.foodCount > 0
+                        ? "linear-gradient(to top, rgba(255,122,69,0.46) 0%, rgba(255,122,69,0.06) 100%)"
+                        : "linear-gradient(to top, rgba(36,92,77,0.22) 0%, rgba(36,92,77,0.04) 100%)";
                       return (
                         <div
                           key={day}
                           className={`day-cell${isToday2 ? " is-today" : ""}${isSelected ? " is-selected" : ""}${heatClass}${isOver ? " dc-over" : ""}`}
                           onClick={() => void navigateDate(dateStr)}
                         >
-                          <span className="day-num" style={{ fontWeight: isToday2 ? 800 : 600 }}>{day}</span>
-                          {st && (st.hasWeight || st.foodCount > 0) && (
-                            <div className="day-cell-bottom">
-                              <div className="day-indicators">
-                                {st.hasWeight && <div className="day-dot day-dot--weight" title="已记录体重" />}
-                                {st.foodCount > 0 && <div className="day-dot day-dot--food" title={`${st.foodCount} 条食物`} />}
-                              </div>
-                              {st.caloriesPct != null && (
-                                <div className="day-calorie-bar">
-                                  <div
-                                    className={`day-calorie-bar-fill${isOver ? " over" : ""}`}
-                                    style={{ width: `${Math.min(100, st.caloriesPct)}%` }}
-                                  />
-                                </div>
-                              )}
-                            </div>
+                          {/* Water fill — rises from bottom to caloriesPct height */}
+                          {fillPct > 0 && (
+                            <div className="day-fill" style={{ height: `${fillPct}%`, background: fillBg }} />
                           )}
+                          {/* Weight badge — top-right dot */}
+                          {st?.hasWeight && <div className="day-weight-badge" title="已记录体重" />}
+                          {/* Date */}
+                          <span className="day-num" style={{ fontWeight: isToday2 ? 800 : 600 }}>{day}</span>
                         </div>
                       );
                     })}

@@ -1612,13 +1612,18 @@ button {
   aspect-ratio: 1 / 1;
   min-height: 92px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(30, 28, 24, 0.06);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1.5px solid rgba(30, 28, 24, 0.07);
   padding: 10px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  justify-content: flex-start;
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 160ms var(--ease-snappy),
+    box-shadow 200ms var(--ease-soft),
+    border-color 200ms var(--ease-soft);
   text-align: left;
   cursor: pointer;
 }
@@ -1626,100 +1631,68 @@ button {
 .day-cell:hover,
 .day-cell.is-selected {
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(36, 92, 77, 0.12);
+  box-shadow: 0 12px 28px rgba(36, 92, 77, 0.13);
 }
 
 .day-cell.is-today {
-  border-color: rgba(255, 120, 79, 0.42);
+  border-color: rgba(255, 120, 79, 0.55);
+  border-width: 2px;
 }
 
 .day-cell.is-empty {
-  opacity: 0.28;
+  opacity: 0.22;
   pointer-events: none;
 }
 
-.day-cell.has-log {
-  background: linear-gradient(180deg, rgba(255, 214, 107, 0.32), rgba(255, 255, 255, 0.84));
+/* ── Water fill layer (rises from bottom = calorie completion %) ── */
+.day-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  transition: height 0.75s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+  z-index: 0;
 }
 
-.day-cell .day-score {
-  width: 10px;
-  height: 10px;
+/* ── Date number (above fill) ── */
+.day-num {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Weight badge (top-right pill) ── */
+.day-weight-badge {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--secondary);
+  z-index: 2;
+  box-shadow: 0 1px 3px rgba(36, 92, 77, 0.3);
 }
 
-/* ── Calendar heatmap states ── */
-.day-cell.dc-full {
-  background: linear-gradient(160deg, rgba(36, 92, 77, 0.32) 0%, rgba(255, 255, 255, 0.88) 100%);
-  border-color: rgba(36, 92, 77, 0.30);
+/* ── Heatmap border states (fill color is set inline on .day-fill) ── */
+.day-cell.dc-food {
+  border-color: rgba(255, 122, 69, 0.35);
 }
 
 .day-cell.dc-weight {
-  background: linear-gradient(160deg, rgba(36, 92, 77, 0.20) 0%, rgba(255, 255, 255, 0.88) 100%);
-  border-color: rgba(36, 92, 77, 0.16);
+  border-color: rgba(36, 92, 77, 0.20);
 }
 
-.day-cell.dc-food {
-  background: linear-gradient(160deg, rgba(255, 122, 69, 0.28) 0%, rgba(255, 255, 255, 0.88) 100%);
-  border-color: rgba(255, 122, 69, 0.20);
+.day-cell.dc-full {
+  border-color: rgba(36, 92, 77, 0.45);
+  box-shadow: 0 0 0 1.5px rgba(36, 92, 77, 0.10) inset;
 }
 
 .day-cell.dc-over {
-  background: linear-gradient(160deg, rgba(220, 80, 80, 0.28) 0%, rgba(255, 255, 255, 0.88) 100%);
-  border-color: rgba(220, 80, 80, 0.22);
-}
-
-/* ── Day cell bottom area ── */
-.day-num {
-  font-size: 0.9rem;
-  line-height: 1;
-}
-
-.day-cell-bottom {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.day-indicators {
-  display: flex;
-  gap: 3px;
-  align-items: center;
-}
-
-.day-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.day-dot--weight {
-  background: var(--secondary);
-}
-
-.day-dot--food {
-  background: var(--primary);
-}
-
-/* ── Calorie bar inside day cell ── */
-.day-calorie-bar {
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(30, 28, 24, 0.1);
-  overflow: hidden;
-}
-
-.day-calorie-bar-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: var(--secondary);
-  transition: width 400ms ease;
-}
-
-.day-calorie-bar-fill.over {
-  background: #d93025;
+  border-color: rgba(220, 80, 80, 0.45);
 }
 
 /* ── Calendar title block ── */
