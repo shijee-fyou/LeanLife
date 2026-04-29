@@ -252,15 +252,15 @@ function NutritionProgressBar({ label, actual, target, unit }: { label: string; 
   const pct = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
   const over = actual > target * 1.1;
   const good = pct >= 75 && !over;
-  const color = over ? "var(--danger)" : good ? "var(--secondary)" : "var(--primary)";
+  const fillColor = over ? "var(--danger)" : good ? "var(--secondary)" : "var(--primary)";
   return (
-    <div style={{ display: "grid", gap: 5 }}>
+    <div style={{ display: "grid", gap: 4 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem" }}>
         <span style={{ fontWeight: 700 }}>{label}</span>
         <span style={{ color: over ? "var(--danger)" : "var(--muted)" }}>{actual} / {target} {unit}</span>
       </div>
       <div className="nutrition-progress">
-        <span style={{ width: `${pct}%`, background: `linear-gradient(135deg, ${color}, ${color}bb)` }} />
+        <span style={{ width: `${pct}%`, background: fillColor }} />
       </div>
     </div>
   );
@@ -483,13 +483,52 @@ export function DashboardWorkspace({ initialData }: Props) {
   useEffect(() => {
     const year = calMonth.getFullYear();
     const month = calMonth.getMonth() + 1;
+    const todayLocal = todayStr();
+
+    // Build today's status directly from workspace (always accurate, no API lag)
+    const log = workspace.dailyLog;
+    const todayLive: CalendarDayStatus | null =
+      (log.foods.length > 0 || log.bodyMetrics?.weightKg != null)
+        ? {
+            date: todayLocal,
+            hasWeight: log.bodyMetrics?.weightKg != null,
+            foodCount: log.foods.length,
+            totalCalories: log.nutrition?.calories ?? 0,
+            caloriesPct:
+              workspace.assessment.targetCalories > 0 && (log.nutrition?.calories ?? 0) > 0
+                ? Math.round(((log.nutrition?.calories ?? 0) / workspace.assessment.targetCalories) * 100)
+                : null,
+            adherenceScore: log.adherenceScore ?? null,
+            energyScore: log.energyScore ?? null,
+          }
+        : null;
+
     void fetch(`/api/workspace/calendar-status?year=${year}&month=${month}`)
       .then((r) => r.ok ? r.json() : null)
       .then((json: { data: CalendarMonthStatus } | null) => {
-        if (json?.data) setMonthStatus(json.data);
+        if (json?.data) {
+          // Merge live today data (overrides API data for today)
+          const days = todayLive
+            ? [...json.data.days.filter((d) => d.date !== todayLocal), todayLive].sort((a, b) => a.date.localeCompare(b.date))
+            : json.data.days;
+          setMonthStatus({ ...json.data, days });
+        } else if (todayLive) {
+          // API failed but we still have today's local data
+          setMonthStatus((prev) => prev
+            ? { ...prev, days: [...prev.days.filter((d) => d.date !== todayLocal), todayLive].sort((a, b) => a.date.localeCompare(b.date)) }
+            : { year, month, days: [todayLive], currentStreak: 1, longestStreak: 1, loggedDays: 1 }
+          );
+        }
       })
-      .catch(() => null);
-  }, [calMonth, workspace.dailyLog.foods.length, workspace.dailyLog.bodyMetrics?.weightKg]); // eslint-disable-line react-hooks/exhaustive-deps
+      .catch(() => {
+        if (todayLive) {
+          setMonthStatus((prev) => prev
+            ? { ...prev, days: [...prev.days.filter((d) => d.date !== todayLocal), todayLive].sort((a, b) => a.date.localeCompare(b.date)) }
+            : { year, month, days: [todayLive], currentStreak: 1, longestStreak: 1, loggedDays: 1 }
+          );
+        }
+      });
+  }, [calMonth, workspace.dailyLog.foods.length, workspace.dailyLog.bodyMetrics?.weightKg, workspace.dailyLog.nutrition?.calories]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mutations
   function runMutation<T>(
